@@ -3,8 +3,8 @@ module tele-type
 go 1.22.5
 
 require (
-	github.com/eiannone/keyboard v0.0.0-20220611211555-0d226195f203
 	github.com/go-vgo/robotgo v0.110.2
+	github.com/wailsapp/wails/v3 v3.0.0-alpha2.110
 )
 
 require (

@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>TeleType</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #1a1b1e;
+      --surface:   #25262b;
+      --border:    #373a40;
+      --accent:    #4dabf7;
+      --accent2:   #74c0fc;
+      --green:     #51cf66;
+      --yellow:    #ffd43b;
+      --red:       #ff6b6b;
+      --text:      #c1c2c5;
+      --text-dim:  #5c5f66;
+      --radius:    10px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 14px;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      padding: 24px;
+      gap: 16px;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    h1 {
+      font-size: 22px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -0.5px;
+    }
+
+    h1 span { color: var(--accent); }
+
+    /* ── Drop zone ──────────────────────────────────────────────────────── */
+    #drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 32px 24px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      flex-shrink: 0;
+    }
+
+    #drop-zone.drag-over {
+      border-color: var(--accent);
+      background: rgba(77,171,247,0.06);
+    }
+
+    #drop-zone p { color: var(--text-dim); margin-bottom: 12px; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 18px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+
+    .btn:active { transform: scale(0.97); }
+    .btn:disabled { opacity: 0.35; cursor: default; pointer-events: none; }
+
+    .btn-primary   { background: var(--accent);  color: #000; }
+    .btn-secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+    .btn-danger    { background: var(--red);     color: #fff; }
+    .btn-warn      { background: var(--yellow);  color: #000; }
+
+    /* ── File info ──────────────────────────────────────────────────────── */
+    #file-info {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 18px;
+      display: none;
+      gap: 10px 32px;
+      flex-wrap: wrap;
+    }
+
+    #file-info.visible { display: flex; }
+
+    .info-item label {
+      display: block;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-dim);
+      margin-bottom: 2px;
+    }
+
+    .info-item span { font-weight: 600; color: #fff; word-break: break-all; }
+
+    /* ── Progress ───────────────────────────────────────────────────────── */
+    #progress-section {
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    #progress-section.visible { display: flex; }
+
+    .progress-track {
+      width: 100%;
+      height: 10px;
+      background: var(--border);
+      border-radius: 5px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+      border-radius: 5px;
+      transition: width 0.3s ease;
+      width: 0%;
+    }
+
+    .progress-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+
+    .progress-labels strong { color: var(--text); }
+
+    .stats {
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+
+    .stat label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-dim);
+      display: block;
+      margin-bottom: 2px;
+    }
+
+    .stat span { font-weight: 600; color: #fff; }
+
+    /* ── Status message ─────────────────────────────────────────────────── */
+    #status-msg {
+      font-size: 13px;
+      color: var(--text-dim);
+      min-height: 18px;
+    }
+
+    #status-msg.running { color: var(--accent); }
+    #status-msg.paused  { color: var(--yellow); }
+    #status-msg.done    { color: var(--green); }
+    #status-msg.error   { color: var(--red); }
+
+    /* ── Controls ───────────────────────────────────────────────────────── */
+    #controls {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    /* ── Countdown overlay ──────────────────────────────────────────────── */
+    #countdown {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      color: var(--yellow);
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    #countdown.visible { display: flex; }
+    #countdown-num { font-size: 24px; }
+
+    /* ── Footer ─────────────────────────────────────────────────────────── */
+    footer {
+      margin-top: auto;
+      font-size: 11px;
+      color: var(--text-dim);
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Tele<span>Type</span></h1>
+
+  <!-- Drop zone / file picker -->
+  <div id="drop-zone">
+    <p>Drag &amp; drop a file here, or</p>
+    <button class="btn btn-primary" id="browse-btn">Browse file…</button>
+  </div>
+
+  <!-- File metadata -->
+  <div id="file-info">
+    <div class="info-item"><label>File</label><span id="fi-path">—</span></div>
+    <div class="info-item"><label>MD5</label><span id="fi-md5">—</span></div>
+    <div class="info-item"><label>Original size</label><span id="fi-size">—</span></div>
+    <div class="info-item"><label>Base64 size</label><span id="fi-b64size">—</span></div>
+    <div class="info-item" id="fi-resume-row" style="display:none">
+      <label>Resume from</label><span id="fi-resume">—</span>
+    </div>
+  </div>
+
+  <!-- Progress -->
+  <div id="progress-section">
+    <div class="progress-track">
+      <div class="progress-fill" id="progress-fill"></div>
+    </div>
+    <div class="progress-labels">
+      <span><strong id="prog-pct">0.00</strong>%</span>
+      <span><strong id="prog-chars">0</strong> / <strong id="prog-total">0</strong> chars</span>
+    </div>
+    <div class="stats">
+      <div class="stat"><label>Speed</label><span id="stat-speed">—</span></div>
+      <div class="stat"><label>Transfer rate</label><span id="stat-rate">—</span></div>
+      <div class="stat"><label>Time remaining</label><span id="stat-eta">—</span></div>
+    </div>
+  </div>
+
+  <!-- Status text + countdown -->
+  <div style="display:flex; align-items:center; gap:16px;">
+    <div id="status-msg">Load a file to begin.</div>
+    <div id="countdown">
+      Starting in <span id="countdown-num">10</span>s — switch to the target window now!
+    </div>
+  </div>
+
+  <!-- Action buttons -->
+  <div id="controls">
+    <button class="btn btn-primary"   id="btn-start"  disabled>▶ Start</button>
+    <button class="btn btn-warn"      id="btn-pause"  disabled>⏸ Pause</button>
+    <button class="btn btn-secondary" id="btn-resume" disabled>▶ Resume</button>
+    <button class="btn btn-danger"    id="btn-cancel" disabled>✕ Cancel</button>
+  </div>
+
+  <footer>
+    Average speed: ~1 000 chars/min · ~16 bytes/sec · Press Start, then switch to the target window.
+  </footer>
+
+<script type="module">
+import { Call, Events } from '/wails/runtime.js';
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+const svc = 'main.TeleTypeService';
+const call = (method, ...args) => Call.ByName(`${svc}.${method}`, ...args);
+
+const $ = id => document.getElementById(id);
+
+function fmtKB(kb)  { return kb < 1024 ? `${kb.toFixed(2)} KB` : `${(kb/1024).toFixed(2)} MB`; }
+function fmtETA(s)  {
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+  return [h, m, sec].map(n => String(n).padStart(2,'0')).join(':');
+}
+
+// ── State ────────────────────────────────────────────────────────────────────
+
+let state = 'idle'; // idle | loaded | counting | running | paused | done
+
+function setState(next) {
+  state = next;
+  $('btn-start') .disabled = !['loaded','done'].includes(next) || next === 'done';
+  $('btn-pause') .disabled = next !== 'running';
+  $('btn-resume').disabled = next !== 'paused';
+  $('btn-cancel').disabled = !['counting','running','paused'].includes(next);
+  $('countdown').classList.toggle('visible', next === 'counting');
+
+  const msg = $('status-msg');
+  msg.className = '';
+  switch (next) {
+    case 'idle':     msg.textContent = 'Load a file to begin.'; break;
+    case 'loaded':   msg.textContent = 'File loaded. Click Start when ready.'; break;
+    case 'counting': msg.textContent = ''; msg.className = 'running'; break;
+    case 'running':  msg.textContent = 'Typing in progress…'; msg.className = 'running'; break;
+    case 'paused':   msg.textContent = 'Paused.'; msg.className = 'paused'; break;
+    case 'done':     msg.textContent = '✓ Done! All characters typed.'; msg.className = 'done'; break;
+  }
+}
+
+// ── File loading ─────────────────────────────────────────────────────────────
+
+async function loadFilePath(path) {
+  setStatus('Loading file…');
+  try {
+    const info = await call('LoadFile', path);
+    $('fi-path')   .textContent = info.path;
+    $('fi-md5')    .textContent = info.md5;
+    $('fi-size')   .textContent = fmtKB(info.sizeKB);
+    $('fi-b64size').textContent = fmtKB(info.base64SizeKB);
+
+    const resumeRow = $('fi-resume-row');
+    if (info.resumedFrom > 0) {
+      $('fi-resume').textContent = `char ${info.resumedFrom} of ${Math.round(info.base64SizeKB * 1024)} (continuing)`;
+      resumeRow.style.display = '';
+    } else {
+      resumeRow.style.display = 'none';
+    }
+
+    $('file-info').classList.add('visible');
+    $('progress-section').classList.add('visible');
+    updateProgress({ current: info.resumedFrom, total: Math.round(info.base64SizeKB * 1024),
+                     percent: 0, status: 'idle' });
+    setState('loaded');
+  } catch(e) {
+    setError(e);
+  }
+}
+
+function setStatus(msg) {
+  const el = $('status-msg');
+  el.className = '';
+  el.textContent = msg;
+}
+
+function setError(e) {
+  const el = $('status-msg');
+  el.className = 'error';
+  el.textContent = '⚠ ' + (e?.message ?? String(e));
+}
+
+// ── Progress display ─────────────────────────────────────────────────────────
+
+function updateProgress(p) {
+  $('progress-fill').style.width = p.percent.toFixed(2) + '%';
+  $('prog-pct').textContent   = p.percent.toFixed(2);
+  $('prog-chars').textContent = p.current.toLocaleString();
+  $('prog-total').textContent = p.total.toLocaleString();
+  $('stat-speed').textContent = p.speedCharsPerMin ? `${p.speedCharsPerMin.toLocaleString()} chars/min` : '—';
+  $('stat-rate') .textContent = p.speedBytesPerSec ? `${p.speedBytesPerSec} bytes/sec` : '—';
+  $('stat-eta')  .textContent = p.remainingSeconds  ? fmtETA(p.remainingSeconds) : '—';
+}
+
+// ── Wails event listeners ─────────────────────────────────────────────────────
+
+Events.On('teletype:countdown', ev => {
+  $('countdown-num').textContent = ev.data;
+});
+
+Events.On('teletype:progress', ev => {
+  const p = ev.data;
+  updateProgress(p);
+  if (p.status === 'paused' && state !== 'paused') setState('paused');
+  if (p.status === 'running' && state !== 'running') setState('running');
+});
+
+Events.On('teletype:complete', ev => {
+  updateProgress(ev.data);
+  setState('done');
+});
+
+// ── Button handlers ───────────────────────────────────────────────────────────
+
+$('browse-btn').onclick = async () => {
+  try {
+    const path = await call('OpenFileDialog');
+    if (path) await loadFilePath(path);
+  } catch(e) { setError(e); }
+};
+
+$('btn-start').onclick = async () => {
+  setState('counting');
+  try {
+    await call('Start', 10);
+    setState('running');
+  } catch(e) {
+    setState('loaded');
+    setError(e);
+  }
+};
+
+$('btn-pause').onclick  = () => { call('Pause');  setState('paused');  };
+$('btn-resume').onclick = () => { call('Resume'); setState('running'); };
+
+$('btn-cancel').onclick = async () => {
+  await call('Cancel');
+  $('file-info').classList.remove('visible');
+  $('progress-section').classList.remove('visible');
+  setState('idle');
+};
+
+// ── Drag & drop ───────────────────────────────────────────────────────────────
+
+const dz = $('drop-zone');
+
+dz.addEventListener('dragover', e => {
+  e.preventDefault();
+  dz.classList.add('drag-over');
+});
+
+dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+
+dz.addEventListener('drop', async e => {
+  e.preventDefault();
+  dz.classList.remove('drag-over');
+  const file = e.dataTransfer?.files?.[0];
+  // Wails exposes the native path on the File object.
+  const path = file?.path ?? file?.name ?? '';
+  if (path) await loadFilePath(path);
+});
+</script>
+</body>
+</html>
