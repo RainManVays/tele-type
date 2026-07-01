@@ -53,6 +53,8 @@ type TeleTypeService struct {
 	status       Status
 	cancelChan   chan struct{}
 	startTime    time.Time
+	pausedAt     time.Time          // when the current pause started
+	totalPaused  time.Duration      // cumulative paused duration (excluded from speed calc)
 }
 
 func NewTeleTypeService() *TeleTypeService {
@@ -175,14 +177,18 @@ func (s *TeleTypeService) Pause() {
 	defer s.mu.Unlock()
 	if s.status == StatusRunning {
 		s.status = StatusPaused
+		s.pausedAt = time.Now()
 	}
 }
 
-// Resume continues a paused typing session.
+// Resume unblocks the typing loop. The countdown before resuming is handled
+// on the frontend side so the user has time to switch back to the target window.
 func (s *TeleTypeService) Resume() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.status == StatusPaused {
+		s.totalPaused += time.Since(s.pausedAt)
+		s.pausedAt = time.Time{}
 		s.status = StatusRunning
 	}
 }
@@ -197,6 +203,8 @@ func (s *TeleTypeService) Cancel() {
 	s.encodedRunes = nil
 	s.currentIndex = 0
 	s.status = StatusIdle
+	s.pausedAt = time.Time{}
+	s.totalPaused = 0
 	s.mu.Unlock()
 
 	if ch != nil {
@@ -227,7 +235,12 @@ func (s *TeleTypeService) snapshot() Progress {
 		p.Percent = float64(s.currentIndex) / float64(total) * 100
 	}
 	if !s.startTime.IsZero() && s.currentIndex > 0 {
-		if elapsed := time.Since(s.startTime).Seconds(); elapsed > 0 {
+		// Exclude all paused time so speed and ETA reflect actual typing time only.
+		paused := s.totalPaused
+		if s.status == StatusPaused && !s.pausedAt.IsZero() {
+			paused += time.Since(s.pausedAt)
+		}
+		if elapsed := (time.Since(s.startTime) - paused).Seconds(); elapsed > 0 {
 			p.SpeedCharsPerMin = int(float64(s.currentIndex) / elapsed * 60)
 			p.SpeedBytesPerSec = int(float64(s.currentIndex) / elapsed)
 			remaining := total - s.currentIndex
@@ -256,6 +269,9 @@ func (s *TeleTypeService) runTyping(runes []rune, offsetPath string, cancelChan 
 	s.mu.Lock()
 	s.startTime = time.Now()
 	s.mu.Unlock()
+
+	// Signal the frontend that typing is now actually starting.
+	app.Event.Emit("teletype:started", nil)
 
 	for {
 		select {

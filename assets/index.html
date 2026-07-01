@@ -251,8 +251,14 @@
   <div style="display:flex;align-items:center;gap:16px;">
     <div id="status-msg">Choose an algorithm and load a file to begin.</div>
     <div id="countdown">
-      Starting in <span id="countdown-num">10</span>s — switch to the target window!
+      <span id="countdown-label">Starting</span> in <span id="countdown-num">10</span>s — switch to the target window now!
     </div>
+  </div>
+
+  <!-- Behaviour note -->
+  <div id="behavior-note" style="display:none;font-size:12px;color:var(--text-dim);background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 12px;">
+    ℹ TeleType types into <strong style="color:var(--text)">whichever window is focused on your OS</strong> — not into TeleType itself.
+    Switch to the target window during the countdown; typing continues there even while TeleType is in the background.
   </div>
 
   <!-- Action buttons -->
@@ -264,7 +270,7 @@
   </div>
 
   <footer>
-    Average speed: ~1 000 chars/min · ~16 bytes/sec · Press Start, then switch to the target window.
+    Average speed: ~1 000 chars/min · ~16 bytes/sec · Speed and ETA pause while typing is paused.
   </footer>
 
 <script type="module">
@@ -380,7 +386,12 @@ function updateProgress(p) {
 
 // ── Wails events ──────────────────────────────────────────────────────────────
 
+// Bug 1 fix: countdown events come from Go; update the number display only.
+// State transition to 'running' happens on teletype:started, NOT after Start() returns.
 Events.On('teletype:countdown', ev => { $('countdown-num').textContent = ev.data; });
+
+// Bug 1 fix: Go emits teletype:started after the countdown ends and typing begins.
+Events.On('teletype:started', () => { setState('running'); });
 
 Events.On('teletype:progress', ev => {
   const p = ev.data;
@@ -403,16 +414,36 @@ $('browse-btn').onclick = async () => {
   } catch(e) { setError(e); }
 };
 
+// Bug 1 fix: don't call setState('running') here — wait for teletype:started.
 $('btn-start').onclick = async () => {
+  $('countdown-label').textContent = 'Starting';
   setState('counting');
+  $('behavior-note').style.display = '';
   try {
     await call('Start', 10);
-    setState('running');
   } catch(e) { setState('loaded'); setError(e); }
 };
 
-$('btn-pause') .onclick = () => { call('Pause');  setState('paused');  };
-$('btn-resume').onclick = () => { call('Resume'); setState('running'); };
+$('btn-pause').onclick = () => { call('Pause'); setState('paused'); };
+
+// Bug 4 fix: JS-side countdown before Resume so user can switch back to target window.
+$('btn-resume').onclick = () => {
+  $('countdown-label').textContent = 'Resuming';
+  setState('counting');
+  let count = 3;
+  $('countdown-num').textContent = count;
+  const iv = setInterval(() => {
+    count--;
+    if (count <= 0) {
+      clearInterval(iv);
+      call('Resume');           // unblocks the Go goroutine
+      // state will flip to 'running' via the next teletype:progress event
+      setState('running');
+    } else {
+      $('countdown-num').textContent = count;
+    }
+  }, 1000);
+};
 
 $('btn-cancel').onclick = async () => {
   await call('Cancel');
