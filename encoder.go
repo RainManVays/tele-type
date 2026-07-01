@@ -101,8 +101,8 @@ func encodeBase91(data []byte) string {
 // sequence (codepoints 128–139) that also absorbs 1 extra input bit.
 // Overhead: ~14.3 %.
 //
-// NOTE: the 2-byte fallback produces non-ASCII runes. Use robotgo.TypeStr to
-// type them; results depend on the target system's Unicode input support.
+// NOTE: the 2-byte fallback produces non-ASCII runes (codepoints 128–139).
+// Typing these via xdotool key U{hex} depends on the target app's Unicode support.
 
 var base122Illegals = [6]byte{0, 10, 13, 34, 38, 92}
 

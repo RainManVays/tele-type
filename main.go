@@ -7,8 +7,8 @@ import (
 	"io"
 	"log"
 	"os"
+	"os/exec"
 
-	"github.com/go-vgo/robotgo"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
@@ -63,10 +63,11 @@ func calculateMD5(filePath string) (string, error) {
 	return fmt.Sprintf("%x", h.Sum(nil)), nil
 }
 
-// typeCharacter simulates a single keystroke for the given rune.
-// robotgo.TypeStr handles all printable ASCII and Unicode (for Base122).
+// typeCharacter simulates a single keystroke layout-independently.
+// xdotool key U{hex} sends a Unicode keysym directly, so the active OS keyboard
+// layout (Cyrillic, etc.) has no effect on what character gets produced.
 func typeCharacter(char rune) {
-	robotgo.TypeStr(string(char))
+	_ = exec.Command("xdotool", "key", "--clearmodifiers", fmt.Sprintf("U%04X", char)).Run()
 }
 
 func saveOffset(filePath string, offset int) {
