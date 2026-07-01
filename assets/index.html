@@ -28,26 +28,54 @@
       height: 100vh;
       display: flex;
       flex-direction: column;
-      padding: 24px;
-      gap: 16px;
+      padding: 20px 24px;
+      gap: 14px;
       user-select: none;
       -webkit-user-select: none;
     }
 
-    h1 {
-      font-size: 22px;
-      font-weight: 700;
-      color: #fff;
-      letter-spacing: -0.5px;
+    h1 { font-size: 22px; font-weight: 700; color: #fff; letter-spacing: -0.5px; }
+    h1 span { color: var(--accent); }
+
+    /* ── Algorithm selector ─────────────────────────────────────────────── */
+    .algo-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
     }
 
-    h1 span { color: var(--accent); }
+    .algo-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      padding: 8px 14px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      min-width: 90px;
+    }
+
+    .algo-btn:hover { border-color: var(--accent); }
+
+    .algo-btn.selected {
+      border-color: var(--accent);
+      background: rgba(77,171,247,0.12);
+    }
+
+    .algo-btn.selected .algo-name { color: var(--accent); }
+
+    .algo-name  { font-weight: 700; font-size: 13px; color: #fff; }
+    .algo-over  { font-size: 11px; color: var(--green); }
+    .algo-note  { font-size: 10px; color: var(--text-dim); }
 
     /* ── Drop zone ──────────────────────────────────────────────────────── */
     #drop-zone {
       border: 2px dashed var(--border);
       border-radius: var(--radius);
-      padding: 32px 24px;
+      padding: 24px;
       text-align: center;
       cursor: pointer;
       transition: border-color 0.2s, background 0.2s;
@@ -59,7 +87,7 @@
       background: rgba(77,171,247,0.06);
     }
 
-    #drop-zone p { color: var(--text-dim); margin-bottom: 12px; }
+    #drop-zone p { color: var(--text-dim); margin-bottom: 10px; font-size: 13px; }
 
     .btn {
       display: inline-flex;
@@ -73,10 +101,8 @@
       font-weight: 600;
       transition: opacity 0.15s, transform 0.1s;
     }
-
     .btn:active { transform: scale(0.97); }
     .btn:disabled { opacity: 0.35; cursor: default; pointer-events: none; }
-
     .btn-primary   { background: var(--accent);  color: #000; }
     .btn-secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
     .btn-danger    { background: var(--red);     color: #fff; }
@@ -87,12 +113,11 @@
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 14px 18px;
+      padding: 12px 16px;
       display: none;
-      gap: 10px 32px;
+      gap: 10px 28px;
       flex-wrap: wrap;
     }
-
     #file-info.visible { display: flex; }
 
     .info-item label {
@@ -103,16 +128,10 @@
       color: var(--text-dim);
       margin-bottom: 2px;
     }
-
     .info-item span { font-weight: 600; color: #fff; word-break: break-all; }
 
     /* ── Progress ───────────────────────────────────────────────────────── */
-    #progress-section {
-      display: none;
-      flex-direction: column;
-      gap: 10px;
-    }
-
+    #progress-section { display: none; flex-direction: column; gap: 8px; }
     #progress-section.visible { display: flex; }
 
     .progress-track {
@@ -122,7 +141,6 @@
       border-radius: 5px;
       overflow: hidden;
     }
-
     .progress-fill {
       height: 100%;
       background: linear-gradient(90deg, var(--accent), var(--accent2));
@@ -130,22 +148,15 @@
       transition: width 0.3s ease;
       width: 0%;
     }
-
     .progress-labels {
       display: flex;
       justify-content: space-between;
       font-size: 12px;
       color: var(--text-dim);
     }
-
     .progress-labels strong { color: var(--text); }
 
-    .stats {
-      display: flex;
-      gap: 24px;
-      flex-wrap: wrap;
-    }
-
+    .stats { display: flex; gap: 24px; flex-wrap: wrap; }
     .stat label {
       font-size: 11px;
       text-transform: uppercase;
@@ -154,53 +165,52 @@
       display: block;
       margin-bottom: 2px;
     }
-
     .stat span { font-weight: 600; color: #fff; }
 
-    /* ── Status message ─────────────────────────────────────────────────── */
-    #status-msg {
-      font-size: 13px;
-      color: var(--text-dim);
-      min-height: 18px;
-    }
-
+    /* ── Status / countdown ─────────────────────────────────────────────── */
+    #status-msg { font-size: 13px; color: var(--text-dim); min-height: 18px; }
     #status-msg.running { color: var(--accent); }
     #status-msg.paused  { color: var(--yellow); }
-    #status-msg.done    { color: var(--green); }
-    #status-msg.error   { color: var(--red); }
+    #status-msg.done    { color: var(--green);  }
+    #status-msg.error   { color: var(--red);    }
 
-    /* ── Controls ───────────────────────────────────────────────────────── */
-    #controls {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-      align-items: center;
-    }
-
-    /* ── Countdown overlay ──────────────────────────────────────────────── */
-    #countdown {
-      display: none;
-      align-items: center;
-      gap: 10px;
-      color: var(--yellow);
-      font-size: 13px;
-      font-weight: 600;
-    }
-
+    #countdown { display: none; align-items: center; gap: 10px; color: var(--yellow); font-size: 13px; font-weight: 600; }
     #countdown.visible { display: flex; }
     #countdown-num { font-size: 24px; }
 
-    /* ── Footer ─────────────────────────────────────────────────────────── */
-    footer {
-      margin-top: auto;
-      font-size: 11px;
-      color: var(--text-dim);
-    }
+    /* ── Controls ───────────────────────────────────────────────────────── */
+    #controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+    footer { margin-top: auto; font-size: 11px; color: var(--text-dim); }
   </style>
 </head>
 <body>
 
   <h1>Tele<span>Type</span></h1>
+
+  <!-- Algorithm selector -->
+  <div>
+    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text-dim);margin-bottom:8px;">Encoding algorithm</div>
+    <div class="algo-row" id="algo-row">
+      <div class="algo-btn selected" data-algo="base64">
+        <span class="algo-name">Base64</span>
+        <span class="algo-over">+33% size</span>
+      </div>
+      <div class="algo-btn" data-algo="base85">
+        <span class="algo-name">Base85</span>
+        <span class="algo-over">+25% size</span>
+      </div>
+      <div class="algo-btn" data-algo="base91">
+        <span class="algo-name">Base91</span>
+        <span class="algo-over">+23% size</span>
+      </div>
+      <div class="algo-btn" data-algo="base122">
+        <span class="algo-name">Base122</span>
+        <span class="algo-over">+14% size</span>
+        <span class="algo-note">⚠ Unicode</span>
+      </div>
+    </div>
+  </div>
 
   <!-- Drop zone / file picker -->
   <div id="drop-zone">
@@ -211,9 +221,11 @@
   <!-- File metadata -->
   <div id="file-info">
     <div class="info-item"><label>File</label><span id="fi-path">—</span></div>
+    <div class="info-item"><label>Algorithm</label><span id="fi-algo">—</span></div>
     <div class="info-item"><label>MD5</label><span id="fi-md5">—</span></div>
     <div class="info-item"><label>Original size</label><span id="fi-size">—</span></div>
-    <div class="info-item"><label>Base64 size</label><span id="fi-b64size">—</span></div>
+    <div class="info-item"><label>Encoded size</label><span id="fi-encsize">—</span></div>
+    <div class="info-item"><label>Characters to type</label><span id="fi-chars">—</span></div>
     <div class="info-item" id="fi-resume-row" style="display:none">
       <label>Resume from</label><span id="fi-resume">—</span>
     </div>
@@ -235,11 +247,11 @@
     </div>
   </div>
 
-  <!-- Status text + countdown -->
-  <div style="display:flex; align-items:center; gap:16px;">
-    <div id="status-msg">Load a file to begin.</div>
+  <!-- Status + countdown -->
+  <div style="display:flex;align-items:center;gap:16px;">
+    <div id="status-msg">Choose an algorithm and load a file to begin.</div>
     <div id="countdown">
-      Starting in <span id="countdown-num">10</span>s — switch to the target window now!
+      Starting in <span id="countdown-num">10</span>s — switch to the target window!
     </div>
   </div>
 
@@ -258,35 +270,57 @@
 <script type="module">
 import { Call, Events } from '/wails/runtime.js';
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-const svc = 'main.TeleTypeService';
+const svc  = 'main.TeleTypeService';
 const call = (method, ...args) => Call.ByName(`${svc}.${method}`, ...args);
+const $    = id => document.getElementById(id);
 
-const $ = id => document.getElementById(id);
-
-function fmtKB(kb)  { return kb < 1024 ? `${kb.toFixed(2)} KB` : `${(kb/1024).toFixed(2)} MB`; }
-function fmtETA(s)  {
-  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+function fmtKB(kb) { return kb < 1024 ? `${kb.toFixed(2)} KB` : `${(kb/1024).toFixed(2)} MB`; }
+function fmtETA(s) {
+  const h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60;
   return [h, m, sec].map(n => String(n).padStart(2,'0')).join(':');
 }
 
-// ── State ────────────────────────────────────────────────────────────────────
+// ── Algorithm selection ───────────────────────────────────────────────────────
 
-let state = 'idle'; // idle | loaded | counting | running | paused | done
+let selectedAlgo = 'base64';
+
+document.querySelectorAll('.algo-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (state === 'running' || state === 'paused') return; // locked during typing
+    document.querySelectorAll('.algo-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    selectedAlgo = btn.dataset.algo;
+    // If a file was already loaded, reload it with the new algorithm.
+    const path = $('fi-path').textContent;
+    if (path && path !== '—' && (state === 'loaded' || state === 'done')) {
+      loadFilePath(path);
+    }
+  });
+});
+
+// ── State ─────────────────────────────────────────────────────────────────────
+
+let state = 'idle';
 
 function setState(next) {
   state = next;
-  $('btn-start') .disabled = !['loaded','done'].includes(next) || next === 'done';
+  $('btn-start') .disabled = next !== 'loaded';
   $('btn-pause') .disabled = next !== 'running';
   $('btn-resume').disabled = next !== 'paused';
   $('btn-cancel').disabled = !['counting','running','paused'].includes(next);
   $('countdown').classList.toggle('visible', next === 'counting');
 
+  // Lock algorithm selector while active.
+  document.querySelectorAll('.algo-btn').forEach(b =>
+    b.style.pointerEvents = ['running','paused','counting'].includes(next) ? 'none' : ''
+  );
+
   const msg = $('status-msg');
   msg.className = '';
   switch (next) {
-    case 'idle':     msg.textContent = 'Load a file to begin.'; break;
+    case 'idle':     msg.textContent = 'Choose an algorithm and load a file to begin.'; break;
     case 'loaded':   msg.textContent = 'File loaded. Click Start when ready.'; break;
     case 'counting': msg.textContent = ''; msg.className = 'running'; break;
     case 'running':  msg.textContent = 'Typing in progress…'; msg.className = 'running'; break;
@@ -295,20 +329,23 @@ function setState(next) {
   }
 }
 
-// ── File loading ─────────────────────────────────────────────────────────────
+// ── File loading ──────────────────────────────────────────────────────────────
 
 async function loadFilePath(path) {
-  setStatus('Loading file…');
+  setStatus('Encoding file…');
   try {
-    const info = await call('LoadFile', path);
-    $('fi-path')   .textContent = info.path;
-    $('fi-md5')    .textContent = info.md5;
-    $('fi-size')   .textContent = fmtKB(info.sizeKB);
-    $('fi-b64size').textContent = fmtKB(info.base64SizeKB);
+    const info = await call('LoadFile', path, selectedAlgo);
+
+    $('fi-path')    .textContent = info.path;
+    $('fi-algo')    .textContent = info.algorithm.toUpperCase();
+    $('fi-md5')     .textContent = info.md5;
+    $('fi-size')    .textContent = fmtKB(info.sizeKB);
+    $('fi-encsize') .textContent = fmtKB(info.encodedSizeKB);
+    $('fi-chars')   .textContent = info.encodedRuneLen.toLocaleString();
 
     const resumeRow = $('fi-resume-row');
     if (info.resumedFrom > 0) {
-      $('fi-resume').textContent = `char ${info.resumedFrom} of ${Math.round(info.base64SizeKB * 1024)} (continuing)`;
+      $('fi-resume').textContent = `char ${info.resumedFrom.toLocaleString()} of ${info.encodedRuneLen.toLocaleString()} (resuming)`;
       resumeRow.style.display = '';
     } else {
       resumeRow.style.display = 'none';
@@ -316,48 +353,39 @@ async function loadFilePath(path) {
 
     $('file-info').classList.add('visible');
     $('progress-section').classList.add('visible');
-    updateProgress({ current: info.resumedFrom, total: Math.round(info.base64SizeKB * 1024),
-                     percent: 0, status: 'idle' });
+    updateProgress({
+      current: info.resumedFrom,
+      total:   info.encodedRuneLen,
+      percent: info.resumedFrom / info.encodedRuneLen * 100,
+      status:  'idle',
+    });
     setState('loaded');
-  } catch(e) {
-    setError(e);
-  }
+  } catch(e) { setError(e); }
 }
 
-function setStatus(msg) {
-  const el = $('status-msg');
-  el.className = '';
-  el.textContent = msg;
-}
+function setStatus(msg) { const el = $('status-msg'); el.className = ''; el.textContent = msg; }
+function setError(e)    { const el = $('status-msg'); el.className = 'error'; el.textContent = '⚠ ' + (e?.message ?? String(e)); }
 
-function setError(e) {
-  const el = $('status-msg');
-  el.className = 'error';
-  el.textContent = '⚠ ' + (e?.message ?? String(e));
-}
-
-// ── Progress display ─────────────────────────────────────────────────────────
+// ── Progress display ──────────────────────────────────────────────────────────
 
 function updateProgress(p) {
-  $('progress-fill').style.width = p.percent.toFixed(2) + '%';
-  $('prog-pct').textContent   = p.percent.toFixed(2);
-  $('prog-chars').textContent = p.current.toLocaleString();
-  $('prog-total').textContent = p.total.toLocaleString();
-  $('stat-speed').textContent = p.speedCharsPerMin ? `${p.speedCharsPerMin.toLocaleString()} chars/min` : '—';
-  $('stat-rate') .textContent = p.speedBytesPerSec ? `${p.speedBytesPerSec} bytes/sec` : '—';
-  $('stat-eta')  .textContent = p.remainingSeconds  ? fmtETA(p.remainingSeconds) : '—';
+  $('progress-fill').style.width = (p.percent ?? 0).toFixed(2) + '%';
+  $('prog-pct')   .textContent = (p.percent ?? 0).toFixed(2);
+  $('prog-chars') .textContent = (p.current ?? 0).toLocaleString();
+  $('prog-total') .textContent = (p.total   ?? 0).toLocaleString();
+  $('stat-speed') .textContent = p.speedCharsPerMin ? `${p.speedCharsPerMin.toLocaleString()} chars/min` : '—';
+  $('stat-rate')  .textContent = p.speedBytesPerSec ? `${p.speedBytesPerSec} bytes/sec` : '—';
+  $('stat-eta')   .textContent = p.remainingSeconds  ? fmtETA(p.remainingSeconds) : '—';
 }
 
-// ── Wails event listeners ─────────────────────────────────────────────────────
+// ── Wails events ──────────────────────────────────────────────────────────────
 
-Events.On('teletype:countdown', ev => {
-  $('countdown-num').textContent = ev.data;
-});
+Events.On('teletype:countdown', ev => { $('countdown-num').textContent = ev.data; });
 
 Events.On('teletype:progress', ev => {
   const p = ev.data;
   updateProgress(p);
-  if (p.status === 'paused' && state !== 'paused') setState('paused');
+  if (p.status === 'paused'  && state !== 'paused')  setState('paused');
   if (p.status === 'running' && state !== 'running') setState('running');
 });
 
@@ -366,7 +394,7 @@ Events.On('teletype:complete', ev => {
   setState('done');
 });
 
-// ── Button handlers ───────────────────────────────────────────────────────────
+// ── Buttons ───────────────────────────────────────────────────────────────────
 
 $('browse-btn').onclick = async () => {
   try {
@@ -380,13 +408,10 @@ $('btn-start').onclick = async () => {
   try {
     await call('Start', 10);
     setState('running');
-  } catch(e) {
-    setState('loaded');
-    setError(e);
-  }
+  } catch(e) { setState('loaded'); setError(e); }
 };
 
-$('btn-pause').onclick  = () => { call('Pause');  setState('paused');  };
+$('btn-pause') .onclick = () => { call('Pause');  setState('paused');  };
 $('btn-resume').onclick = () => { call('Resume'); setState('running'); };
 
 $('btn-cancel').onclick = async () => {
@@ -399,19 +424,12 @@ $('btn-cancel').onclick = async () => {
 // ── Drag & drop ───────────────────────────────────────────────────────────────
 
 const dz = $('drop-zone');
-
-dz.addEventListener('dragover', e => {
-  e.preventDefault();
-  dz.classList.add('drag-over');
-});
-
+dz.addEventListener('dragover',  e => { e.preventDefault(); dz.classList.add('drag-over'); });
 dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
-
 dz.addEventListener('drop', async e => {
   e.preventDefault();
   dz.classList.remove('drag-over');
   const file = e.dataTransfer?.files?.[0];
-  // Wails exposes the native path on the File object.
   const path = file?.path ?? file?.name ?? '';
   if (path) await loadFilePath(path);
 });

@@ -3,7 +3,6 @@ package main
 import (
 	"crypto/md5"
 	"embed"
-	"encoding/base64"
 	"fmt"
 	"io"
 	"log"
@@ -35,8 +34,8 @@ func main() {
 
 	app.Window.NewWithOptions(application.WebviewWindowOptions{
 		Title:           "TeleType",
-		Width:           860,
-		Height:          620,
+		Width:           900,
+		Height:          640,
 		MinWidth:        640,
 		MinHeight:       480,
 		URL:             "/",
@@ -48,7 +47,7 @@ func main() {
 	}
 }
 
-// ── helpers shared by service.go ─────────────────────────────────────────────
+// ── Shared helpers ────────────────────────────────────────────────────────────
 
 func calculateMD5(filePath string) (string, error) {
 	f, err := os.Open(filePath)
@@ -64,25 +63,10 @@ func calculateMD5(filePath string) (string, error) {
 	return fmt.Sprintf("%x", h.Sum(nil)), nil
 }
 
-func createBase64File(inputPath, outputPath string) error {
-	data, err := os.ReadFile(inputPath)
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(outputPath, []byte(base64.StdEncoding.EncodeToString(data)), 0644)
-}
-
+// typeCharacter simulates a single keystroke for the given rune.
+// robotgo.TypeStr handles all printable ASCII and Unicode (for Base122).
 func typeCharacter(char rune) {
-	switch char {
-	case '+':
-		robotgo.KeyTap("=", "shift")
-	case '/':
-		robotgo.KeyTap("/")
-	case '=':
-		robotgo.KeyTap("=")
-	default:
-		robotgo.TypeStr(string(char))
-	}
+	robotgo.TypeStr(string(char))
 }
 
 func saveOffset(filePath string, offset int) {

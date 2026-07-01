@@ -22,16 +22,18 @@ const (
 
 // FileInfo holds metadata about the loaded file.
 type FileInfo struct {
-	Path         string  `json:"path"`
-	MD5          string  `json:"md5"`
-	SizeKB       float64 `json:"sizeKB"`
-	Base64Path   string  `json:"base64Path"`
-	Base64SizeKB float64 `json:"base64SizeKB"`
-	OffsetPath   string  `json:"offsetPath"`
-	ResumedFrom  int     `json:"resumedFrom"`
+	Path            string    `json:"path"`
+	MD5             string    `json:"md5"`
+	SizeKB          float64   `json:"sizeKB"`
+	EncodedPath     string    `json:"encodedPath"`
+	EncodedSizeKB   float64   `json:"encodedSizeKB"`
+	EncodedRuneLen  int       `json:"encodedRuneLen"`
+	OffsetPath      string    `json:"offsetPath"`
+	ResumedFrom     int       `json:"resumedFrom"`
+	Algorithm       Algorithm `json:"algorithm"`
 }
 
-// Progress carries the current typing progress snapshot.
+// Progress carries a snapshot of the current typing progress.
 type Progress struct {
 	Current          int     `json:"current"`
 	Total            int     `json:"total"`
@@ -46,8 +48,8 @@ type Progress struct {
 type TeleTypeService struct {
 	mu           sync.Mutex
 	fileInfo     *FileInfo
-	encodedText  string
-	currentIndex int
+	encodedRunes []rune // rune slice so Base122 multi-byte chars are handled correctly
+	currentIndex int    // rune index, also stored in the offset file
 	status       Status
 	cancelChan   chan struct{}
 	startTime    time.Time
@@ -57,18 +59,27 @@ func NewTeleTypeService() *TeleTypeService {
 	return &TeleTypeService{status: StatusIdle}
 }
 
-// OpenFileDialog opens a native file-picker and returns the selected path.
+// OpenFileDialog opens a native OS file-picker and returns the selected path.
 func (s *TeleTypeService) OpenFileDialog() (string, error) {
 	return application.Get().Dialog.OpenFile().
 		CanChooseFiles(true).
 		PromptForSingleSelection()
 }
 
-// LoadFile encodes the given file to Base64, reads any saved offset, and
-// returns metadata. Must be called before Start.
-func (s *TeleTypeService) LoadFile(path string) (*FileInfo, error) {
+// LoadFile encodes the given file with the chosen algorithm, loads any saved
+// progress, and returns metadata. Must be called before Start.
+//
+// algorithm must be one of: "base64", "base85", "base91", "base122".
+func (s *TeleTypeService) LoadFile(path, algorithm string) (*FileInfo, error) {
 	if path == "" {
 		return nil, fmt.Errorf("no file path provided")
+	}
+
+	algo := Algorithm(algorithm)
+	switch algo {
+	case AlgoBase64, AlgoBase85, AlgoBase91, AlgoBase122:
+	default:
+		algo = AlgoBase64
 	}
 
 	s.mu.Lock()
@@ -90,44 +101,52 @@ func (s *TeleTypeService) LoadFile(path string) (*FileInfo, error) {
 
 	stat, err := os.Stat(absPath)
 	if err != nil {
-		return nil, fmt.Errorf("error reading file: %w", err)
+		return nil, fmt.Errorf("error reading file info: %w", err)
 	}
 
-	base64Path := absPath + ".txt"
-	offsetPath := absPath + ".offset"
+	// Include algorithm in filenames so switching algorithms doesn't overwrite.
+	encodedPath := absPath + "." + string(algo) + ".txt"
+	offsetPath := absPath + "." + string(algo) + ".offset"
 
-	if err := createBase64File(absPath, base64Path); err != nil {
-		return nil, fmt.Errorf("error creating base64 file: %w", err)
+	if err := encodeFile(absPath, encodedPath, algo); err != nil {
+		return nil, fmt.Errorf("error encoding file: %w", err)
 	}
 
-	b64Stat, err := os.Stat(base64Path)
+	encStat, err := os.Stat(encodedPath)
 	if err != nil {
-		return nil, fmt.Errorf("error reading base64 file info: %w", err)
+		return nil, fmt.Errorf("error reading encoded file info: %w", err)
 	}
 
-	data, err := os.ReadFile(base64Path)
+	encoded, err := os.ReadFile(encodedPath)
 	if err != nil {
-		return nil, fmt.Errorf("error reading base64 content: %w", err)
+		return nil, fmt.Errorf("error reading encoded content: %w", err)
 	}
 
+	runes := []rune(string(encoded))
 	offset := loadOffset(offsetPath)
-	s.encodedText = string(data)
+	if offset > len(runes) {
+		offset = 0 // stale offset — reset
+	}
+
+	s.encodedRunes = runes
 	s.currentIndex = offset
 	s.status = StatusIdle
 	s.fileInfo = &FileInfo{
-		Path:         absPath,
-		MD5:          md5Sum,
-		SizeKB:       float64(stat.Size()) / 1024,
-		Base64Path:   base64Path,
-		Base64SizeKB: float64(b64Stat.Size()) / 1024,
-		OffsetPath:   offsetPath,
-		ResumedFrom:  offset,
+		Path:           absPath,
+		MD5:            md5Sum,
+		SizeKB:         float64(stat.Size()) / 1024,
+		EncodedPath:    encodedPath,
+		EncodedSizeKB:  float64(encStat.Size()) / 1024,
+		EncodedRuneLen: len(runes),
+		OffsetPath:     offsetPath,
+		ResumedFrom:    offset,
+		Algorithm:      algo,
 	}
 
 	return s.fileInfo, nil
 }
 
-// Start begins the typing simulation. Starts a countdown of delaySeconds before typing.
+// Start begins the typing simulation after a countdown of delaySeconds.
 func (s *TeleTypeService) Start(delaySeconds int) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -146,7 +165,7 @@ func (s *TeleTypeService) Start(delaySeconds int) error {
 	s.cancelChan = make(chan struct{})
 	s.startTime = time.Now()
 
-	go s.runTyping(s.encodedText, s.fileInfo.OffsetPath, s.cancelChan, delaySeconds)
+	go s.runTyping(s.encodedRunes, s.fileInfo.OffsetPath, s.cancelChan, delaySeconds)
 	return nil
 }
 
@@ -168,14 +187,14 @@ func (s *TeleTypeService) Resume() {
 	}
 }
 
-// Cancel stops typing and deletes the generated .txt and .offset files.
+// Cancel stops typing and removes the generated encoded and offset files.
 func (s *TeleTypeService) Cancel() {
 	s.mu.Lock()
 	ch := s.cancelChan
 	fi := s.fileInfo
 	s.cancelChan = nil
 	s.fileInfo = nil
-	s.encodedText = ""
+	s.encodedRunes = nil
 	s.currentIndex = 0
 	s.status = StatusIdle
 	s.mu.Unlock()
@@ -184,7 +203,7 @@ func (s *TeleTypeService) Cancel() {
 		close(ch)
 	}
 	if fi != nil {
-		os.Remove(fi.Base64Path)
+		os.Remove(fi.EncodedPath)
 		os.Remove(fi.OffsetPath)
 	}
 }
@@ -198,7 +217,7 @@ func (s *TeleTypeService) GetProgress() Progress {
 
 // snapshot builds a Progress value; must be called with s.mu held.
 func (s *TeleTypeService) snapshot() Progress {
-	total := len(s.encodedText)
+	total := len(s.encodedRunes)
 	p := Progress{
 		Current: s.currentIndex,
 		Total:   total,
@@ -208,8 +227,7 @@ func (s *TeleTypeService) snapshot() Progress {
 		p.Percent = float64(s.currentIndex) / float64(total) * 100
 	}
 	if !s.startTime.IsZero() && s.currentIndex > 0 {
-		elapsed := time.Since(s.startTime).Seconds()
-		if elapsed > 0 {
+		if elapsed := time.Since(s.startTime).Seconds(); elapsed > 0 {
 			p.SpeedCharsPerMin = int(float64(s.currentIndex) / elapsed * 60)
 			p.SpeedBytesPerSec = int(float64(s.currentIndex) / elapsed)
 			remaining := total - s.currentIndex
@@ -221,11 +239,10 @@ func (s *TeleTypeService) snapshot() Progress {
 	return p
 }
 
-func (s *TeleTypeService) runTyping(text string, offsetPath string, cancelChan chan struct{}, delaySeconds int) {
+func (s *TeleTypeService) runTyping(runes []rune, offsetPath string, cancelChan chan struct{}, delaySeconds int) {
 	app := application.Get()
-	total := len(text)
+	total := len(runes)
 
-	// Countdown before typing begins.
 	for i := delaySeconds; i > 0; i-- {
 		select {
 		case <-cancelChan:
@@ -237,7 +254,7 @@ func (s *TeleTypeService) runTyping(text string, offsetPath string, cancelChan c
 	}
 
 	s.mu.Lock()
-	s.startTime = time.Now() // reset timer after countdown
+	s.startTime = time.Now()
 	s.mu.Unlock()
 
 	for {
@@ -270,7 +287,7 @@ func (s *TeleTypeService) runTyping(text string, offsetPath string, cancelChan c
 			continue
 		}
 
-		typeCharacter(rune(text[idx]))
+		typeCharacter(runes[idx])
 
 		s.mu.Lock()
 		s.currentIndex++

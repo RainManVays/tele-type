@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Name=My Product
+Comment=A teletype-tmp application
+# The Exec line includes %u to pass the URL to the application
+Exec=/usr/local/bin/teletype-tmp %u
+Terminal=false
+Type=Application
+Icon=teletype-tmp
+Categories=Utility;
+StartupWMClass=teletype-tmp
+
+ 
