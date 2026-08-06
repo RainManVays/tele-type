@@ -25,3 +25,19 @@ go.work.sum
 .env
 
 .idea/
+
+# Compiled app binary
+/tele-type
+
+# TeleType-generated encoded/offset files (produced by loading a file in-app)
+*.base64.txt
+*.base85.txt
+*.base91.txt
+*.base122.txt
+*.offset
+
+# Wails build scaffolding for platforms this app can't target (no
+# other-window keyboard injection concept on mobile/containers)
+/build/android/
+/build/ios/
+/build/docker/
