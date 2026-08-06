@@ -126,8 +126,8 @@ func (s *TeleTypeService) LoadFile(path, algorithm string) (*FileInfo, error) {
 
 	runes := []rune(string(encoded))
 	offset := loadOffset(offsetPath)
-	if offset > len(runes) {
-		offset = 0 // stale offset — reset
+	if len(runes) > 0 && offset >= len(runes) {
+		offset = 0 // stale offset from a completed run — reset
 	}
 
 	s.encodedRunes = runes
@@ -181,16 +181,32 @@ func (s *TeleTypeService) Pause() {
 	}
 }
 
-// Resume unblocks the typing loop. The countdown before resuming is handled
-// on the frontend side so the user has time to switch back to the target window.
-func (s *TeleTypeService) Resume() {
+// ResumeWithCountdown runs the same Go-side countdown as Start so the user has
+// time to switch back to the target window, then resumes typing.
+func (s *TeleTypeService) ResumeWithCountdown(delaySeconds int) error {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.status == StatusPaused {
-		s.totalPaused += time.Since(s.pausedAt)
-		s.pausedAt = time.Time{}
-		s.status = StatusRunning
+	if s.status != StatusPaused {
+		s.mu.Unlock()
+		return fmt.Errorf("not paused")
 	}
+	cancelChan := s.cancelChan
+	s.mu.Unlock()
+
+	go func() {
+		if runCountdown(cancelChan, delaySeconds) {
+			return
+		}
+		s.mu.Lock()
+		if s.status == StatusPaused {
+			s.totalPaused += time.Since(s.pausedAt)
+			s.pausedAt = time.Time{}
+			s.status = StatusRunning
+		}
+		s.mu.Unlock()
+		application.Get().Event.Emit("teletype:started", nil)
+	}()
+
+	return nil
 }
 
 // Cancel stops typing and removes the generated encoded and offset files.
@@ -252,25 +268,40 @@ func (s *TeleTypeService) snapshot() Progress {
 	return p
 }
 
-func (s *TeleTypeService) runTyping(runes []rune, offsetPath string, cancelChan chan struct{}, delaySeconds int) {
+// runCountdown emits teletype:countdown once per second and returns true if
+// the cancel channel was closed before the countdown finished.
+func runCountdown(cancelChan chan struct{}, seconds int) bool {
 	app := application.Get()
-	total := len(runes)
-
-	for i := delaySeconds; i > 0; i-- {
+	for i := seconds; i > 0; i-- {
 		select {
 		case <-cancelChan:
-			return
+			return true
 		default:
 		}
 		app.Event.Emit("teletype:countdown", i)
 		time.Sleep(time.Second)
 	}
+	return false
+}
+
+func (s *TeleTypeService) runTyping(runes []rune, offsetPath string, cancelChan chan struct{}, delaySeconds int) {
+	app := application.Get()
+	total := len(runes)
+
+	if runCountdown(cancelChan, delaySeconds) {
+		return
+	}
+
+	// Force a single Latin layout for the whole session — see lockLatinLayout
+	// for why: typing while a non-Latin group (e.g. Russian) is active can
+	// wedge the X server's input pipeline hard enough to need a reboot.
+	restoreLayout := lockLatinLayout()
+	defer restoreLayout()
 
 	s.mu.Lock()
 	s.startTime = time.Now()
 	s.mu.Unlock()
 
-	// Signal the frontend that typing is now actually starting.
 	app.Event.Emit("teletype:started", nil)
 
 	for {
@@ -290,6 +321,7 @@ func (s *TeleTypeService) runTyping(runes []rune, offsetPath string, cancelChan 
 			s.status = StatusDone
 			prog := s.snapshot()
 			s.mu.Unlock()
+			os.Remove(offsetPath) // don't let a completed run look "stale" on reload
 			app.Event.Emit("teletype:complete", prog)
 			return
 		}

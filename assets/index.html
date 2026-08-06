@@ -82,7 +82,8 @@
       flex-shrink: 0;
     }
 
-    #drop-zone.drag-over {
+    /* Wails adds this class to [data-file-drop-target] while dragging files over it */
+    #drop-zone.file-drop-target-active {
       border-color: var(--accent);
       background: rgba(77,171,247,0.06);
     }
@@ -213,7 +214,7 @@
   </div>
 
   <!-- Drop zone / file picker -->
-  <div id="drop-zone">
+  <div id="drop-zone" data-file-drop-target>
     <p>Drag &amp; drop a file here, or</p>
     <button class="btn btn-primary" id="browse-btn">Browse file…</button>
   </div>
@@ -294,7 +295,7 @@ let selectedAlgo = 'base64';
 
 document.querySelectorAll('.algo-btn').forEach(btn => {
   btn.addEventListener('click', () => {
-    if (state === 'running' || state === 'paused') return; // locked during typing
+    if (['running','paused','counting'].includes(state)) return; // locked during typing
     document.querySelectorAll('.algo-btn').forEach(b => b.classList.remove('selected'));
     btn.classList.add('selected');
     selectedAlgo = btn.dataset.algo;
@@ -396,6 +397,7 @@ Events.On('teletype:started', () => { setState('running'); });
 Events.On('teletype:progress', ev => {
   const p = ev.data;
   updateProgress(p);
+  if (state === 'counting') return; // don't override countdown with stale paused/running status
   if (p.status === 'paused'  && state !== 'paused')  setState('paused');
   if (p.status === 'running' && state !== 'running') setState('running');
 });
@@ -426,23 +428,12 @@ $('btn-start').onclick = async () => {
 
 $('btn-pause').onclick = () => { call('Pause'); setState('paused'); };
 
-// Bug 4 fix: JS-side countdown before Resume so user can switch back to target window.
-$('btn-resume').onclick = () => {
+$('btn-resume').onclick = async () => {
   $('countdown-label').textContent = 'Resuming';
   setState('counting');
-  let count = 3;
-  $('countdown-num').textContent = count;
-  const iv = setInterval(() => {
-    count--;
-    if (count <= 0) {
-      clearInterval(iv);
-      call('Resume');           // unblocks the Go goroutine
-      // state will flip to 'running' via the next teletype:progress event
-      setState('running');
-    } else {
-      $('countdown-num').textContent = count;
-    }
-  }, 1000);
+  try {
+    await call('ResumeWithCountdown', 10);
+  } catch(e) { setState('paused'); setError(e); }
 };
 
 $('btn-cancel').onclick = async () => {
@@ -453,16 +444,13 @@ $('btn-cancel').onclick = async () => {
 };
 
 // ── Drag & drop ───────────────────────────────────────────────────────────────
+// Files dropped from the OS are handled natively by Wails (see main.go's
+// EnableFileDrop + OnWindowEvent): the browser's own DataTransfer API never
+// exposes a real filesystem path outside Electron, only a bare filename.
 
-const dz = $('drop-zone');
-dz.addEventListener('dragover',  e => { e.preventDefault(); dz.classList.add('drag-over'); });
-dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
-dz.addEventListener('drop', async e => {
-  e.preventDefault();
-  dz.classList.remove('drag-over');
-  const file = e.dataTransfer?.files?.[0];
-  const path = file?.path ?? file?.name ?? '';
-  if (path) await loadFilePath(path);
+Events.On('teletype:filedropped', async ev => {
+  if (['running','paused','counting'].includes(state)) return; // locked during typing
+  await loadFilePath(ev.data);
 });
 </script>
 </body>
